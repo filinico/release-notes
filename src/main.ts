@@ -1,17 +1,26 @@
 import * as core from '@actions/core'
-import {wait} from './wait'
+import * as github from '@actions/github'
+import {onPush} from './eventHandler'
 
 async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
-    core.debug(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
-
-    core.setOutput('time', new Date().toTimeString())
+    const githubToken = core.getInput('GITHUB_TOKEN', {required: true})
+    const jiraUrl = core.getInput('JIRA_ISSUE_URL', {required: true})
+    core.info(`GITHUB_EVENT_NAME=${process.env.GITHUB_EVENT_NAME}`)
+    core.info(`GITHUB context action=${github.context.payload.action}`)
+    const octokit = github.getOctokit(githubToken)
+    const gitHubContext = {
+      octokit,
+      context: github.context
+    }
+    if (process.env.GITHUB_EVENT_NAME === 'push') {
+      core.info(`start onPush`)
+      await onPush(gitHubContext, jiraUrl)
+      core.info(`onPush finished`)
+    }
   } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     core.setFailed(error.message)
   }
 }
